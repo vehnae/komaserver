@@ -19,7 +19,11 @@ node server.js
 ## Examples
 
 ```curl http://localhost:9000/weather```
+
 ```curl http://localhost:9000/safe```
+
 ```curl -X POST http://localhost:9000/roof/jari/open```
+
 ```curl http://localhost:9000/roof/jari```
+
 ```curl -X POST http://localhost:9000/roof/jari/close```
