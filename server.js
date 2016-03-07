@@ -94,4 +94,7 @@ var server = app.listen(9000, function() {
     var port = server.address().port;
 
     console.log('komaserver listening at http://%s:%s', host, port);
+}).on('error', function(err) {
+    console.log('on error handler');
+    console.log(err);
 });
