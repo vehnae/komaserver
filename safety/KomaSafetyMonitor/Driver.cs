@@ -78,7 +78,7 @@ namespace ASCOM.Komakallio
             utilities = new Util(); //Initialise util object
             astroUtilities = new AstroUtils(); // Initialise astro utilities object
 
-            updateTimerDelegate = new TimerCallback(UpdateObservingConditionsData);
+            updateTimerDelegate = new TimerCallback(UpdateSafetyMonitorData);
 
             tl.LogMessage("SafetyMonitor", "Completed initialisation");
         }
