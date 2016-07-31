@@ -30,7 +30,7 @@ app.get('/weather', function(req, res) {
     });
 });
 
-app.get('/safe', function(req, res) {
+app.get('/safety', function(req, res) {
 
     // luetaan rajakytkimet, sääasemat sun muut härpättimet josta tila selviää
     var safe = true;
