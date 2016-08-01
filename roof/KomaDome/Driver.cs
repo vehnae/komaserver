@@ -13,6 +13,10 @@ using ASCOM.Utilities;
 using ASCOM.DeviceInterface;
 using System.Globalization;
 using System.Collections;
+using System.Threading;
+using System.Net;
+using System.IO;
+using Newtonsoft.Json;
 
 namespace ASCOM.Komakallio
 {
@@ -76,7 +80,6 @@ namespace ASCOM.Komakallio
             ReadProfile(); // Read device configuration from the ASCOM Profile store
 
             tl = new TraceLogger("", "Komakallio");
-            tl.Enabled = traceState;
             tl.LogMessage("Dome", "Starting initialisation");
 
             connectedState = false; // Initialise connected to false
@@ -374,20 +377,17 @@ namespace ASCOM.Komakallio
 
         public void CloseShutter()
         {
-            var request = WebRequest.Create(serverAddress.replaceAll(":user", pierName) + "/close") as HttpWebRequest;
-            try
+            var request = WebRequest.Create(serverAddress.Replace(":user", pierName) + "/close") as HttpWebRequest;
+            using (var response = request.GetResponse() as HttpWebResponse)
             {
-                using (var response = request.GetResponse() as HttpWebResponse)
+                if (response.StatusCode != HttpStatusCode.OK)
                 {
-                    if (response.StatusCode != HttpStatusCode.OK)
-                    {
-                        throw new Exception(String.Format("Server error (HTTP {0}: {1}).",
-                            response.StatusCode,
-                            response.StatusDescription));
-                    }
+                    throw new Exception(String.Format("Server error (HTTP {0}: {1}).",
+                        response.StatusCode,
+                        response.StatusDescription));
                 }
             }
-            UpdateRoofData();
+            UpdateRoofData(null);
 
             tl.LogMessage("CloseShutter", "Shutter has been closed");
         }
@@ -400,20 +400,17 @@ namespace ASCOM.Komakallio
 
         public void OpenShutter()
         {
-            var request = WebRequest.Create(serverAddress.replaceAll(":user", pierName) + "/open") as HttpWebRequest;
-            try
+            var request = WebRequest.Create(serverAddress.Replace(":user", pierName) + "/open") as HttpWebRequest;
+            using (var response = request.GetResponse() as HttpWebResponse)
             {
-                using (var response = request.GetResponse() as HttpWebResponse)
+                if (response.StatusCode != HttpStatusCode.OK)
                 {
-                    if (response.StatusCode != HttpStatusCode.OK)
-                    {
-                        throw new Exception(String.Format("Server error (HTTP {0}: {1}).",
-                            response.StatusCode,
-                            response.StatusDescription));
-                    }
+                    throw new Exception(String.Format("Server error (HTTP {0}: {1}).",
+                        response.StatusCode,
+                        response.StatusDescription));
                 }
             }
-            UpdateRoofData();
+            UpdateRoofData(null);
             domeShutterState = true;
         }
 
@@ -512,7 +509,6 @@ namespace ASCOM.Komakallio
                         json = reader.ReadToEnd();
 
                     Dictionary<string, string> values = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-                    safe = Boolean.Parse(values["safe"], CultureInfo.InvariantCulture);
                     lastUpdate = DateTime.Now;
                 }
             } catch( Exception e)
@@ -627,8 +623,8 @@ namespace ASCOM.Komakallio
             using (Profile driverProfile = new Profile())
             {
                 driverProfile.DeviceType = "Dome";
-                traceState = Convert.ToBoolean(driverProfile.GetValue(driverID, traceStateProfileName, string.Empty, traceStateDefault));
-                comPort = driverProfile.GetValue(driverID, comPortProfileName, string.Empty, comPortDefault);
+                serverAddress = driverProfile.GetValue(driverID, serverAddressProfileName, string.Empty, serverAddressDefault);
+                pierName = driverProfile.GetValue(driverID, pierNameProfileName, string.Empty, pierNameDefault);
             }
         }
 
@@ -640,12 +636,22 @@ namespace ASCOM.Komakallio
             using (Profile driverProfile = new Profile())
             {
                 driverProfile.DeviceType = "Dome";
-                driverProfile.WriteValue(driverID, traceStateProfileName, traceState.ToString());
-                driverProfile.WriteValue(driverID, comPortProfileName, comPort.ToString());
+                driverProfile.WriteValue(driverID, serverAddressProfileName, serverAddress.ToString());
+                driverProfile.WriteValue(driverID, pierNameProfileName, pierName.ToString());
             }
         }
 
+        /// <summary>
+        /// Log helper function that takes formatted strings and arguments
+        /// </summary>
+        /// <param name="identifier"></param>
+        /// <param name="message"></param>
+        /// <param name="args"></param>
+        internal void LogMessage(string identifier, string message, params object[] args)
+        {
+            var msg = string.Format(message, args);
+            tl.LogMessage(identifier, msg);
+        }
         #endregion
-
     }
 }
