@@ -47,7 +47,11 @@ app.param('user', function(req, res, next, user) {
 
 app.all('/roof/*', function(req, res, next) {
     req.memcache.get('roof-state', function(error, result) {
-        req.roofstate = JSON.parse(result) ||  {};
+        if (error) {
+            console.log('error reading memcached: ' + error + ' result: ' + result);
+            return res.status(500).end();
+        }
+        req.roofstate = JSON.parse(result) || { slewing:false, users:{} };
         var state = _.clone(req.roofstate);
         console.log('roof state before: ' + JSON.stringify(req.roofstate));
         next();
@@ -61,30 +65,49 @@ app.all('/roof/*', function(req, res, next) {
 
 app.get('/roof/:user', function(req, res) {
     res.json({
-        open: req.roofstate[req.user]
+	open: req.roofstate.users[req.user],
+	slewing: req.roofstate.slewing
     });
 });
 
 app.post('/roof/:user/open', function(req, res) {
-    if (_.every(_.values(req.roofstate), function(v, index) { 
+    console.log('open ' + req.user);
+    if (_.every(_.values(req.roofstate.users), function(v, index) { 
             return v == false;
         })) {
         console.log('open physical roof');
+	req.roofstate.slewing = true;
+	setTimeout(function() {
+	    console.log('slew complete');
+	    req.memcache.get('roof-state', function(error, result) {
+	        roofstate = JSON.parse(result) || { slewing:false, users:{} };
+		roofstate.slewing = false;
+		req.memcache.set('roof-state', JSON.stringify(roofstate));
+	    });
+	}, 10000);
     }
-
-    req.roofstate[req.user] = true;
+    req.roofstate.users[req.user] = true;
     res.status(200).send('OK');
 });
 
 app.post('/roof/:user/close', function(req, res) {
-    var roofopen = _.any(_.values(req.roofstate), function(v, index) { 
+    var roofopen = _.any(_.values(req.roofstate.users), function(v, index) { 
         return v == true;
     });
-    req.roofstate[req.user] = false;
-    if (roofopen && _.every(_.values(req.roofstate), function(v, index) { 
+    req.roofstate.users[req.user] = false;
+    if (roofopen && _.every(_.values(req.roofstate.users), function(v, index) { 
             return v == false;
         })) {
         console.log('close physical roof');
+	req.roofstate.slewing = true;
+	setTimeout(function() {
+	    console.log('slew complete');
+	    req.memcache.get('roof-state', function(error, result) {
+	        roofstate = JSON.parse(result) || { slewing:false, users:{} };
+		roofstate.slewing = false;
+		req.memcache.set('roof-state', JSON.stringify(roofstate));
+	    });
+	}, 10000);
     }
     res.status(200).send('OK');
 });
