@@ -36,15 +36,11 @@ namespace ASCOM.Komakallio
         /// <summary>
         /// Driver description that displays in the ASCOM Chooser.
         /// </summary>
-        private static string driverDescription = "Komakallio Roof Driver.";
+        private static string driverDescription = "Komakallio Roof Driver";
 
         internal static string serverAddressProfileName = "Server Address"; // Constants used for Profile persistence
-        internal static string serverAddressDefault = "http://192.168.0.110:9000/roof/:user";
+        internal static string serverAddressDefault = "http://192.168.0.110:9000/roof/USER";
         internal static string serverAddress;
-
-        internal static string pierNameProfileName = "Pier Name";
-        internal static string pierNameDefault = "";
-        internal static string pierName;
 
         // Data
         private DateTime lastUpdate;
@@ -185,7 +181,6 @@ namespace ASCOM.Komakallio
                 {
                     connectedState = true;
                     LogMessage("Connected Set", "Connecting to server {0}", serverAddress);
-
                     if (updateTimer == null)
                     {
                         updateTimer = new System.Threading.Timer(updateTimerDelegate, null, 0, (10 * 1000));
@@ -195,7 +190,6 @@ namespace ASCOM.Komakallio
                 {
                     connectedState = false;
                     LogMessage("Connected Set", "Disconnecting from server {0}", serverAddress);
-
                     if (updateTimer != null)
                     {
                         updateTimer.Dispose();
@@ -260,11 +254,12 @@ namespace ASCOM.Komakallio
 
         #region IDome Implementation
 
-        private bool domeShutterState = false; // Variable to hold the open/closed status of the shutter, true = Open
+        private bool domeShutterOpen = false;
+        private bool domeOpening = false;
+        private bool domeClosing = false;
 
         public void AbortSlew()
         {
-            throw new ASCOM.PropertyNotImplementedException("AbortSlew", false);
         }
 
         public double Altitude
@@ -377,7 +372,8 @@ namespace ASCOM.Komakallio
 
         public void CloseShutter()
         {
-            var request = WebRequest.Create(serverAddress.Replace(":user", pierName) + "/close") as HttpWebRequest;
+            var request = WebRequest.Create(serverAddress + "/close") as HttpWebRequest;
+            request.Method = "POST";
             using (var response = request.GetResponse() as HttpWebResponse)
             {
                 if (response.StatusCode != HttpStatusCode.OK)
@@ -400,7 +396,8 @@ namespace ASCOM.Komakallio
 
         public void OpenShutter()
         {
-            var request = WebRequest.Create(serverAddress.Replace(":user", pierName) + "/open") as HttpWebRequest;
+            var request = WebRequest.Create(serverAddress + "/open") as HttpWebRequest;
+            request.Method = "POST";
             using (var response = request.GetResponse() as HttpWebResponse)
             {
                 if (response.StatusCode != HttpStatusCode.OK)
@@ -411,7 +408,6 @@ namespace ASCOM.Komakallio
                 }
             }
             UpdateRoofData(null);
-            domeShutterState = true;
         }
 
         public void Park()
@@ -430,17 +426,18 @@ namespace ASCOM.Komakallio
         {
             get
             {
-                tl.LogMessage("ShutterStatus Get", false.ToString());
-                if (domeShutterState)
-                {
-                    tl.LogMessage("ShutterStatus", ShutterState.shutterOpen.ToString());
-                    return ShutterState.shutterOpen;
-                }
-                else
-                {
-                    tl.LogMessage("ShutterStatus", ShutterState.shutterClosed.ToString());
-                    return ShutterState.shutterClosed;
-                }
+                tl.LogMessage("ShutterStatus Get", domeShutterOpen.ToString());
+                ShutterState shutterState = ShutterState.shutterError;
+                if (domeClosing)
+                    shutterState = ShutterState.shutterClosing;
+                else if (domeOpening)
+                    shutterState = ShutterState.shutterOpening;
+                else if (domeShutterOpen)
+                    shutterState = ShutterState.shutterOpen;
+                else if (!domeShutterOpen)
+                    shutterState = ShutterState.shutterClosed;
+                tl.LogMessage("ShutterStatus", shutterState.ToString());
+                return shutterState;
             }
         }
 
@@ -474,8 +471,8 @@ namespace ASCOM.Komakallio
         {
             get
             {
-                tl.LogMessage("Slewing Get", false.ToString());
-                return false;
+                tl.LogMessage("Slewing Get", domeOpening.ToString() + " " + domeClosing.ToString());
+                return domeClosing || domeOpening;
             }
         }
 
@@ -509,6 +506,9 @@ namespace ASCOM.Komakallio
                         json = reader.ReadToEnd();
 
                     Dictionary<string, string> values = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
+                    domeOpening = Boolean.Parse(values["opening"]);
+                    domeClosing = Boolean.Parse(values["closing"]);
+                    domeShutterOpen = Boolean.Parse(values["open"]);
                     lastUpdate = DateTime.Now;
                 }
             } catch( Exception e)
@@ -624,7 +624,6 @@ namespace ASCOM.Komakallio
             {
                 driverProfile.DeviceType = "Dome";
                 serverAddress = driverProfile.GetValue(driverID, serverAddressProfileName, string.Empty, serverAddressDefault);
-                pierName = driverProfile.GetValue(driverID, pierNameProfileName, string.Empty, pierNameDefault);
             }
         }
 
@@ -637,7 +636,6 @@ namespace ASCOM.Komakallio
             {
                 driverProfile.DeviceType = "Dome";
                 driverProfile.WriteValue(driverID, serverAddressProfileName, serverAddress.ToString());
-                driverProfile.WriteValue(driverID, pierNameProfileName, pierName.ToString());
             }
         }
 
