@@ -11,6 +11,8 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.13.3",
+    "express-logging": "^1.1.1",
+    "logops": "^1.0.1",
     "memcache": "^0.3.0",
     "underscore": "^1.8.3"
   }
