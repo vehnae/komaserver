@@ -13,6 +13,10 @@ using ASCOM.Utilities;
 using ASCOM.DeviceInterface;
 using System.Globalization;
 using System.Collections;
+using System.Threading;
+using System.Net;
+using System.IO;
+using Newtonsoft.Json;
 
 namespace ASCOM.Komakallio
 {
@@ -32,15 +36,11 @@ namespace ASCOM.Komakallio
         /// <summary>
         /// Driver description that displays in the ASCOM Chooser.
         /// </summary>
-        private static string driverDescription = "Komakallio Roof Driver.";
+        private static string driverDescription = "Komakallio Roof Driver";
 
         internal static string serverAddressProfileName = "Server Address"; // Constants used for Profile persistence
-        internal static string serverAddressDefault = "http://192.168.0.110:9000/roof/:user";
+        internal static string serverAddressDefault = "http://192.168.0.110:9000/roof/USER";
         internal static string serverAddress;
-
-        internal static string pierNameProfileName = "Pier Name";
-        internal static string pierNameDefault = "";
-        internal static string pierName;
 
         // Data
         private DateTime lastUpdate;
@@ -76,7 +76,6 @@ namespace ASCOM.Komakallio
             ReadProfile(); // Read device configuration from the ASCOM Profile store
 
             tl = new TraceLogger("", "Komakallio");
-            tl.Enabled = traceState;
             tl.LogMessage("Dome", "Starting initialisation");
 
             connectedState = false; // Initialise connected to false
@@ -182,7 +181,6 @@ namespace ASCOM.Komakallio
                 {
                     connectedState = true;
                     LogMessage("Connected Set", "Connecting to server {0}", serverAddress);
-
                     if (updateTimer == null)
                     {
                         updateTimer = new System.Threading.Timer(updateTimerDelegate, null, 0, (10 * 1000));
@@ -192,7 +190,6 @@ namespace ASCOM.Komakallio
                 {
                     connectedState = false;
                     LogMessage("Connected Set", "Disconnecting from server {0}", serverAddress);
-
                     if (updateTimer != null)
                     {
                         updateTimer.Dispose();
@@ -257,11 +254,12 @@ namespace ASCOM.Komakallio
 
         #region IDome Implementation
 
-        private bool domeShutterState = false; // Variable to hold the open/closed status of the shutter, true = Open
+        private bool domeShutterOpen = false;
+        private bool domeOpening = false;
+        private bool domeClosing = false;
 
         public void AbortSlew()
         {
-            throw new ASCOM.PropertyNotImplementedException("AbortSlew", false);
         }
 
         public double Altitude
@@ -374,20 +372,18 @@ namespace ASCOM.Komakallio
 
         public void CloseShutter()
         {
-            var request = WebRequest.Create(serverAddress.replaceAll(":user", pierName) + "/close") as HttpWebRequest;
-            try
+            var request = WebRequest.Create(serverAddress + "/close") as HttpWebRequest;
+            request.Method = "POST";
+            using (var response = request.GetResponse() as HttpWebResponse)
             {
-                using (var response = request.GetResponse() as HttpWebResponse)
+                if (response.StatusCode != HttpStatusCode.OK)
                 {
-                    if (response.StatusCode != HttpStatusCode.OK)
-                    {
-                        throw new Exception(String.Format("Server error (HTTP {0}: {1}).",
-                            response.StatusCode,
-                            response.StatusDescription));
-                    }
+                    throw new Exception(String.Format("Server error (HTTP {0}: {1}).",
+                        response.StatusCode,
+                        response.StatusDescription));
                 }
             }
-            UpdateRoofData();
+            UpdateRoofData(null);
 
             tl.LogMessage("CloseShutter", "Shutter has been closed");
         }
@@ -400,21 +396,18 @@ namespace ASCOM.Komakallio
 
         public void OpenShutter()
         {
-            var request = WebRequest.Create(serverAddress.replaceAll(":user", pierName) + "/open") as HttpWebRequest;
-            try
+            var request = WebRequest.Create(serverAddress + "/open") as HttpWebRequest;
+            request.Method = "POST";
+            using (var response = request.GetResponse() as HttpWebResponse)
             {
-                using (var response = request.GetResponse() as HttpWebResponse)
+                if (response.StatusCode != HttpStatusCode.OK)
                 {
-                    if (response.StatusCode != HttpStatusCode.OK)
-                    {
-                        throw new Exception(String.Format("Server error (HTTP {0}: {1}).",
-                            response.StatusCode,
-                            response.StatusDescription));
-                    }
+                    throw new Exception(String.Format("Server error (HTTP {0}: {1}).",
+                        response.StatusCode,
+                        response.StatusDescription));
                 }
             }
-            UpdateRoofData();
-            domeShutterState = true;
+            UpdateRoofData(null);
         }
 
         public void Park()
@@ -433,17 +426,18 @@ namespace ASCOM.Komakallio
         {
             get
             {
-                tl.LogMessage("ShutterStatus Get", false.ToString());
-                if (domeShutterState)
-                {
-                    tl.LogMessage("ShutterStatus", ShutterState.shutterOpen.ToString());
-                    return ShutterState.shutterOpen;
-                }
-                else
-                {
-                    tl.LogMessage("ShutterStatus", ShutterState.shutterClosed.ToString());
-                    return ShutterState.shutterClosed;
-                }
+                tl.LogMessage("ShutterStatus Get", domeShutterOpen.ToString());
+                ShutterState shutterState = ShutterState.shutterError;
+                if (domeClosing)
+                    shutterState = ShutterState.shutterClosing;
+                else if (domeOpening)
+                    shutterState = ShutterState.shutterOpening;
+                else if (domeShutterOpen)
+                    shutterState = ShutterState.shutterOpen;
+                else if (!domeShutterOpen)
+                    shutterState = ShutterState.shutterClosed;
+                tl.LogMessage("ShutterStatus", shutterState.ToString());
+                return shutterState;
             }
         }
 
@@ -477,8 +471,8 @@ namespace ASCOM.Komakallio
         {
             get
             {
-                tl.LogMessage("Slewing Get", false.ToString());
-                return false;
+                tl.LogMessage("Slewing Get", domeOpening.ToString() + " " + domeClosing.ToString());
+                return domeClosing || domeOpening;
             }
         }
 
@@ -512,7 +506,9 @@ namespace ASCOM.Komakallio
                         json = reader.ReadToEnd();
 
                     Dictionary<string, string> values = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-                    safe = Boolean.Parse(values["safe"], CultureInfo.InvariantCulture);
+                    domeOpening = Boolean.Parse(values["opening"]);
+                    domeClosing = Boolean.Parse(values["closing"]);
+                    domeShutterOpen = Boolean.Parse(values["open"]);
                     lastUpdate = DateTime.Now;
                 }
             } catch( Exception e)
@@ -627,8 +623,7 @@ namespace ASCOM.Komakallio
             using (Profile driverProfile = new Profile())
             {
                 driverProfile.DeviceType = "Dome";
-                traceState = Convert.ToBoolean(driverProfile.GetValue(driverID, traceStateProfileName, string.Empty, traceStateDefault));
-                comPort = driverProfile.GetValue(driverID, comPortProfileName, string.Empty, comPortDefault);
+                serverAddress = driverProfile.GetValue(driverID, serverAddressProfileName, string.Empty, serverAddressDefault);
             }
         }
 
@@ -640,12 +635,21 @@ namespace ASCOM.Komakallio
             using (Profile driverProfile = new Profile())
             {
                 driverProfile.DeviceType = "Dome";
-                driverProfile.WriteValue(driverID, traceStateProfileName, traceState.ToString());
-                driverProfile.WriteValue(driverID, comPortProfileName, comPort.ToString());
+                driverProfile.WriteValue(driverID, serverAddressProfileName, serverAddress.ToString());
             }
         }
 
+        /// <summary>
+        /// Log helper function that takes formatted strings and arguments
+        /// </summary>
+        /// <param name="identifier"></param>
+        /// <param name="message"></param>
+        /// <param name="args"></param>
+        internal void LogMessage(string identifier, string message, params object[] args)
+        {
+            var msg = string.Format(message, args);
+            tl.LogMessage(identifier, msg);
+        }
         #endregion
-
     }
 }
