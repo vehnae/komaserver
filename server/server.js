@@ -4,9 +4,11 @@ var memcache = require('memcache');
 var expressLogging = require('express-logging');
 var logger = require('logops');
 logger.setLevel('DEBUG');
+var fs = require('fs');
 
 var app = express();
 app.use(expressLogging(logger));
+var safe = false;
 
 app.all('*', function(req, res, next) {
     client = new memcache.Client(11211, 'localhost');
@@ -35,11 +37,18 @@ app.get('/weather', function(req, res) {
     });
 });
 
-app.get('/safety', function(req, res) {
-
+function updateSafety() {
     // luetaan rajakytkimet, sääasemat sun muut härpättimet josta tila selviää
-    var safe = true;
+    fs.access('/tmp/.unsafe', fs.F_OK, function(err) {
+        if (!err) 
+            safe = false;
+        else
+            safe = true;
+    });
+    setTimeout(updateSafety, 5000);
+}
 
+app.get('/safety', function(req, res) {
     res.json({
         safe: safe
     });
@@ -144,6 +153,8 @@ app.post('/roof/:user/close', function(req, res) {
 var server = app.listen(9000, function() {
     var host = server.address().address;
     var port = server.address().port;
+
+    updateSafety();
 
     logger.info('komaserver listening at http://%s:%s', host, port);
 }).on('error', function(err) {
