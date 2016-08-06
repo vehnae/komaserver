@@ -27,3 +27,5 @@ build/Release
 node_modules
 roof/KomaDome/bin/
 roof/KomaDome/obj/
+safety/KomaSafetyMonitor/bin/
+safety/KomaSafetyMonitor/obj/

@@ -6,9 +6,8 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
 using ASCOM.Utilities;
-using ASCOM.KomaObservatory;
 
-namespace ASCOM.KomaObservatory
+namespace ASCOM.Komakallio
 {
     [ComVisible(false)]					// Form not registered for COM!
     public partial class SetupDialogForm : Form
@@ -24,8 +23,7 @@ namespace ASCOM.KomaObservatory
         {
             // Place any validation constraint checks here
             // Update the state variables with results from the dialogue
-            SafetyMonitor.comPort = (string)comboBoxComPort.SelectedItem;
-            SafetyMonitor.traceState = chkTrace.Checked;
+            SafetyMonitor.serverAddress = (string)serverAddressTextBox.Text;
         }
 
         private void cmdCancel_Click(object sender, EventArgs e) // Cancel button event handler
@@ -52,15 +50,7 @@ namespace ASCOM.KomaObservatory
 
         private void InitUI()
         {
-            chkTrace.Checked = SafetyMonitor.traceState;
-            // set the list of com ports to those that are currently available
-            comboBoxComPort.Items.Clear();
-            comboBoxComPort.Items.AddRange(System.IO.Ports.SerialPort.GetPortNames());      // use System.IO because it's static
-            // select the current port if possible
-            if (comboBoxComPort.Items.Contains(SafetyMonitor.comPort))
-            {
-                comboBoxComPort.SelectedItem = SafetyMonitor.comPort;
-            }
+            serverAddressTextBox.Text = SafetyMonitor.serverAddress;
         }
     }
 }

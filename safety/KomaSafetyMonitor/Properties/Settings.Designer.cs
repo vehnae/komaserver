@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace ASCOM.KomaObservatory.Properties
+namespace ASCOM.Komakallio.Properties
 {
 
 

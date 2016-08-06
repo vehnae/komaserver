@@ -12,11 +12,15 @@ using ASCOM.Utilities;
 using ASCOM.DeviceInterface;
 using System.Globalization;
 using System.Collections;
+using System.Threading;
+using System.Net;
+using System.IO;
+using Newtonsoft.Json;
 
 namespace ASCOM.Komakallio
 {
     /// <summary>
-    /// ASCOM SafetyMonitor Driver for KomaObservatory.
+    /// ASCOM SafetyMonitor Driver for Komakallio.
     /// </summary>
     [Guid("be987b5a-31ab-4f18-8dda-861a5a307d5d")]
     [ClassInterface(ClassInterfaceType.None)]
@@ -38,7 +42,8 @@ namespace ASCOM.Komakallio
         internal static string serverAddress;
 
         // Data
-        private boolean safe = false;
+        private bool safe = false;
+        private int errorCount = 0;
         private DateTime lastUpdate;
         private TimerCallback updateTimerDelegate;
         private System.Threading.Timer updateTimer;
@@ -64,14 +69,14 @@ namespace ASCOM.Komakallio
         private TraceLogger tl;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="KomaObservatory"/> class.
+        /// Initializes a new instance of the <see cref="Komakallio"/> class.
         /// Must be public for COM registration.
         /// </summary>
         public SafetyMonitor()
         {
             ReadProfile(); // Read device configuration from the ASCOM Profile store
 
-            tl = new TraceLogger("", "KomaObservatory");
+            tl = new TraceLogger("", "Komakallio");
             tl.LogMessage("SafetyMonitor", "Starting initialisation");
 
             connectedState = false; // Initialise connected to false
@@ -282,11 +287,17 @@ namespace ASCOM.Komakallio
                         json = reader.ReadToEnd();
 
                     Dictionary<string, string> values = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-                    safe = Boolean.Parse(values["safe"], CultureInfo.InvariantCulture);
+                    safe = Boolean.Parse(values["safe"]);
                     lastUpdate = DateTime.Now;
+                    errorCount = 0;
                 }
             } catch( Exception e)
             {
+                if (++errorCount > 5)
+                {
+                    tl.LogMessage("UnSafe", "Too many communication errors, declaring system unsafe");
+                    safe = false;
+                }
                 LogMessage("Update", "Error: " + e.Message);
             }
         }
@@ -411,6 +422,18 @@ namespace ASCOM.Komakallio
                 driverProfile.DeviceType = "SafetyMonitor";
                 driverProfile.WriteValue(driverID, serverAddressProfileName, serverAddress.ToString());
             }
+        }
+
+        /// <summary>
+        /// Log helper function that takes formatted strings and arguments
+        /// </summary>
+        /// <param name="identifier"></param>
+        /// <param name="message"></param>
+        /// <param name="args"></param>
+        internal void LogMessage(string identifier, string message, params object[] args)
+        {
+            var msg = string.Format(message, args);
+            tl.LogMessage(identifier, msg);
         }
 
         #endregion
