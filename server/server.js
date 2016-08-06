@@ -38,6 +38,7 @@ app.get('/weather', function(req, res) {
 });
 
 function updateSafety() {
+    // luetaan rajakytkimet, sääasemat sun muut härpättimet josta tila selviää
     fs.access('/tmp/.unsafe', fs.F_OK, function(err) {
         if (!err) 
             safe = false;
@@ -48,8 +49,6 @@ function updateSafety() {
 }
 
 app.get('/safety', function(req, res) {
-
-    // luetaan rajakytkimet, sääasemat sun muut härpättimet josta tila selviää
     res.json({
         safe: safe
     });
