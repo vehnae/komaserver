@@ -1,0 +1,19 @@
+{
+  "name": "koma-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "Jari Saukkonen",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.13.3",
+    "express-logging": "^1.1.1",
+    "logops": "^1.0.1",
+    "serialport": "^4.0.1",
+    "underscore": "^1.8.3"
+  }
+}
