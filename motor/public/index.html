@@ -94,8 +94,9 @@
         setInterval(function(){
           $.get('/status', function(res) {
               for (var i = 0; i < res.power.length; i++) {
-                  chart.chart.config.data.datasets[0].data[i] = res.power[i];
+                  chart.chart.config.data.datasets[0].data[i+1] = res.power[i];
               }
+              chart.chart.config.data.datasets[0].data[0] = chart.chart.config.data.datasets[0].data[1];
               chart.update();
 
               $('#status').html(res.status);
