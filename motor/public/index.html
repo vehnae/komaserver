@@ -25,6 +25,11 @@
                 <button id="open" class="btn btn-lg btn-primary">Open</button>
             </div>
         </div>
+        <div class="row" style="margin-top:30px;">
+            <div class="col-xs-4 col-xs-offset-4 text-center">
+                Speed: <input type="text" id="speed" value="400"/><button id="setspeed" class="btn btn-lg btn-primary">Set speed</button>
+            </div>
+
     </div>
     <script>
         $(document).ready(function() {
@@ -37,6 +42,9 @@
             $("#stop").click(function() {
                 $.post('/stop');
             });
+            $("#setspeed").click(function() {
+                $.post('/setspeed/' + $('#speed').val());
+            })
         });
         var l = []
         var d = []

@@ -66,6 +66,18 @@ app.post('/stop', function(req, res) {
     res.json({success:true});
 });
 
+app.post('/setspeed/:speed', function(req, res) {
+    var cmd = 'SETSPEED,' + req.params.speed;
+    var sum = 0;
+    for (var i = 0; i < cmd.length; i++) {
+        sum = sum ^ cmd.charCodeAt(i);
+    }
+    var checksum = sum.toString(16).toUpperCase();
+    port.write('$' + cmd + '*' + checksum + '\r\n');
+
+    res.json({success:true});
+});
+
 app.use(express.static('public'));
 
 port.on('open', function() {
