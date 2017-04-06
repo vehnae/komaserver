@@ -1,0 +1,19 @@
+{
+  "name": "koma-weather-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "Jari Saukkonen",
+  "license": "MIT",
+  "dependencies": {
+    "body-parser": "^1.17.1",
+    "express": "^4.14.0",
+    "express-logging": "^1.1.1",
+    "logops": "^1.0.7",
+    "redis": "^2.7.1"
+  }
+}
