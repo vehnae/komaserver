@@ -19,7 +19,7 @@ app.use(express.static('public'));
 app.use(bodyParser.json());
 
 function saveData(type, req, res) {
-    redisClient.zadd('ptu', Date.now(), JSON.stringify(req.body), function(err, reply) {
+    redisClient.zadd(type, Date.now(), JSON.stringify(req.body), function(err, reply) {
         if (err) {
             logger.error(err);
             res.status(500).send(err);
@@ -30,9 +30,7 @@ function saveData(type, req, res) {
 }
 
 function sendLatestData(type, req, res) {
-    // add 'since' parameter
     if (req.query.since) {
-        console.log('since ' + req.query.since);
         redisClient.zrangebyscore(type, req.query.since, '+inf', 'WITHSCORES', function(err, reply) {
             if (err) {
                 logger.error(err);
@@ -48,7 +46,6 @@ function sendLatestData(type, req, res) {
             }
         });
     } else {
-        console.log('latest');
         redisClient.zrevrange(type, 0, 1, 'WITHSCORES', function(err, reply) {
             if (err) {
                 logger.error(err);
@@ -62,31 +59,35 @@ function sendLatestData(type, req, res) {
     }
 }
 
-app.post('/api/ptu', function(req, res) {
-    if (req.body.Type != 'PTU') {
+function dewpoint(humidity, temperature) {
+    var a, b;
+    if (temperature >= 0) {
+        a = 7.5;
+        b = 237.3;
+    } else {
+        a = 7.6;
+        b = 240.7;
+    }
+
+    var sdd = 6.1078 * Math.pow(10, (a * temperature) / (b + temperature));
+    var dd = sdd * (humidity / 100);
+    v = Math.log(dd / 6.1078) / Math.log(10);
+    return (b * v) / (a - v);
+}
+
+app.post('/api', function(req, res) {
+    if (req.body.Type == 'PTU') {
+        saveData('ptu', req, res);
+    } else if (req.body.Type == 'Wind') {
+        saveData('wind', req, res);
+    } else if (req.body.Type == 'Rain') {
+        saveData('rain', req, res);
+    } else if (req.body.Type == 'Status') {
+        saveData('status', req, res);
+    } else {
         res.sendStatus(400);
         return;
     }
-
-    saveData('ptu', req, res);
-});
-
-app.post('/api/wind', function(req, res) {
-    if (req.body.Type != 'Wind') {
-        res.sendStatus(400);
-        return;
-    }
-
-    saveData('wind', req, res);
-});
-
-app.post('/api/rain', function(req, res) {
-    if (req.body.Type != 'Rain') {
-        res.sendStatus(400);
-        return;
-    }
-
-    saveData('rain', req, res);
 });
 
 app.get('/api/ptu', function(req, res) {
@@ -101,23 +102,46 @@ app.get('/api/rain', function(req, res) {
     sendLatestData('rain', req, res);
 });
 
-app.get('/api/weather', function(req, res) {
-    req.memcache.get('openweathermap', function(error, result) {
-        if (error) {
-            logger.error('error reading memcached: ' + error + ' result: ' + result);
-            return res.status(500).end();
-        }
+app.get('/api/status', function(req, res) {
+    sendLatestData('status', req, res);
+});
 
-        var weatherdata = JSON.parse(result);
-        var data = {
-            temperature: weatherdata.main.temp,
-            humidity: weatherdata.main.humidity,
-            pressure: weatherdata.main.pressure,
-            windspeed: weatherdata.wind.speed,
-            winddir: weatherdata.wind.deg,
-            clouds: weatherdata.clouds.all
-        };
-        res.json(data);
+app.get('/api/weather', function(req, res) {
+    redisClient.zrevrange('ptu', 0, 0, function(err, ptustr) {
+        if (err) {
+            res.status(500).send(err);
+            return;
+        }
+        redisClient.zrevrange('wind', 0, 0, function(err, windstr) {
+            if (err) {
+                res.status(500).send(err);
+                return;
+            }
+            redisClient.zrevrange('rain', 0, 0, function(err, rainstr) {
+                if (err) {
+                    res.status(500).send(err);
+                    return;
+                }
+                var ptu = JSON.parse(ptustr[0]);
+                var wind = JSON.parse(windstr[0]);
+                var rain = JSON.parse(rainstr[0]);
+
+                var data = {
+                    temperature: ptu.Data.Temperature.Ambient[0],
+                    humidity: ptu.Data.Humidity[0],
+                    dewpoint: parseInt(dewpoint(ptu.Data.Humidity[0], ptu.Data.Temperature.Ambient[0])*100)/100,
+                    pressure: ptu.Data.Pressure[0],
+                    windspeed: wind.Data.Speed.average[0],
+                    windgust: wind.Data.Speed.limits[1][0],
+                    winddir: wind.Data.Direction.average[0],
+                    rainrate: rain.Data.Rain.Intensity[0],
+                    cloudcover: 0,
+                    skytemperature: 0,
+                    skyquality: 0
+                };
+                res.json(data);
+            });
+        });
     });
 });
 
