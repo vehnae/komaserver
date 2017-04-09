@@ -5,7 +5,10 @@ const bodyParser = require('body-parser');
 logger.setLevel('DEBUG');
 const fs = require('fs');
 const redis = require('redis');
+const Promise = require('bluebird');
 const REDIS_PORT = process.env.REDIS_PORT || 6379;
+
+Promise.promisifyAll(redis.RedisClient.prototype);
 
 const app = express();
 const redisClient = redis.createClient(REDIS_PORT);
@@ -107,41 +110,37 @@ app.get('/api/status', function(req, res) {
 });
 
 app.get('/api/weather', function(req, res) {
-    redisClient.zrevrange('ptu', 0, 0, function(err, ptustr) {
-        if (err) {
-            res.status(500).send(err);
+    var a = redisClient.zrevrangeAsync('ptu', 0, 0);
+    var b = redisClient.zrevrangeAsync('wind', 0, 0);
+    var c = redisClient.zrevrangeAsync('rain', 0, 0);
+
+    Promise.join(a, b, c, function(ptureply, windreply, rainreply) {
+        if (ptureply.length == 0 || windreply.length == 0 || rainreply.length == 0) {
+            logger.error('Reading Redis failed');
+            res.status(500).send('{"error":"Reading redis failed"}');
             return;
         }
-        redisClient.zrevrange('wind', 0, 0, function(err, windstr) {
-            if (err) {
-                res.status(500).send(err);
-                return;
-            }
-            redisClient.zrevrange('rain', 0, 0, function(err, rainstr) {
-                if (err) {
-                    res.status(500).send(err);
-                    return;
-                }
-                var ptu = JSON.parse(ptustr[0]);
-                var wind = JSON.parse(windstr[0]);
-                var rain = JSON.parse(rainstr[0]);
+        var ptu = JSON.parse(ptureply[0]);
+        var wind = JSON.parse(windreply[0]);
+        var rain = JSON.parse(rainreply[0]);
 
-                var data = {
-                    temperature: ptu.Data.Temperature.Ambient[0],
-                    humidity: ptu.Data.Humidity[0],
-                    dewpoint: parseInt(dewpoint(ptu.Data.Humidity[0], ptu.Data.Temperature.Ambient[0])*100)/100,
-                    pressure: ptu.Data.Pressure[0],
-                    windspeed: wind.Data.Speed.average[0],
-                    windgust: wind.Data.Speed.limits[1][0],
-                    winddir: wind.Data.Direction.average[0],
-                    rainrate: rain.Data.Rain.Intensity[0],
-                    cloudcover: 0,
-                    skytemperature: 0,
-                    skyquality: 0
-                };
-                res.json(data);
-            });
-        });
+        var data = {
+            temperature: ptu.Data.Temperature.Ambient[0],
+            humidity: ptu.Data.Humidity[0],
+            dewpoint: parseInt(dewpoint(ptu.Data.Humidity[0], ptu.Data.Temperature.Ambient[0])*100)/100,
+            pressure: ptu.Data.Pressure[0],
+            windspeed: wind.Data.Speed.average[0],
+            windgust: wind.Data.Speed.limits[1][0],
+            winddir: wind.Data.Direction.average[0],
+            rainrate: rain.Data.Rain.Intensity[0],
+            cloudcover: 0,
+            skytemperature: 0,
+            skyquality: 0
+        };
+        res.json(data);
+    }).catch(function(err) {
+        logger.error('Reading Redis failed', err);
+        res.status(500).send('{"error":"Reading redis failed: ' + err+  '"}');
     });
 });
 
