@@ -1,31 +1,4 @@
 //tabs=4
-// --------------------------------------------------------------------------------
-// TODO fill in this information for your driver, then remove this line!
-//
-// ASCOM ObservingConditions driver for Komakallio
-//
-// Description:	Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam 
-//				nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam 
-//				erat, sed diam voluptua. At vero eos et accusam et justo duo 
-//				dolores et ea rebum. Stet clita kasd gubergren, no sea takimata 
-//				sanctus est Lorem ipsum dolor sit amet.
-//
-// Implements:	ASCOM ObservingConditions interface version: <To be completed by driver developer>
-// Author:		(XXX) Your N. Here <your@email.here>
-//
-// Edit Log:
-//
-// Date			Who	Vers	Description
-// -----------	---	-----	-------------------------------------------------------
-// dd-mmm-yyyy	XXX	6.0.0	Initial edit, created from ASCOM driver template
-// --------------------------------------------------------------------------------
-//
-
-
-// This is used to define code in the template that is specific to one class implementation
-// unused code canbe deleted and this definition removed.
-#define ObservingConditions
-
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -69,24 +42,29 @@ namespace ASCOM.Komakallio
         /// The DeviceID is used by ASCOM applications to load the driver at runtime.
         /// </summary>
         internal static string driverID = "ASCOM.Komakallio.ObservingConditions";
-        // TODO Change the descriptive string for your driver then remove this line
         /// <summary>
         /// Driver description that displays in the ASCOM Chooser.
         /// </summary>
         private static string driverDescription = "Komakallio ObservingConditions Driver";
 
         internal static string serverAddressProfileName = "Server Address"; // Constants used for Profile persistence
-        internal static string serverAddressDefault = "http://192.168.0.110:9000/observingconditions";
-
+        internal static string serverAddressDefault = "http://192.168.0.110:9001/api/weather";
         internal static string serverAddress; 
 
         // Weather data
-        private double temperature = 0;
-        private double humidity = 0;
-        private double pressure = 0;
-        private double cloudCover = 0;
-        private double windspeed = 0;
-        private double winddir = 0;
+        private Double temperature = Double.NaN;
+        private Double humidity = Double.NaN;
+        private Double pressure = Double.NaN;
+        private Double dewpoint = Double.NaN;
+        private Double cloudCover = Double.NaN;
+        private Double windspeed = Double.NaN;
+        private Double winddir = Double.NaN;
+        private Double windgust = Double.NaN;
+        private Double starfwhm = Double.NaN;
+        private Double sqm = Double.NaN;
+        private Double skytemp = Double.NaN;
+        private Double skybrightness = Double.NaN;
+        private Double rain = Double.NaN;
 
         private DateTime lastUpdate;
 
@@ -225,6 +203,7 @@ namespace ASCOM.Komakallio
                 {
                     connectedState = true;
                     LogMessage("Connected Set", "Connecting to server {0}", serverAddress);
+                    UpdateObservingConditionsData(null);
 
                     if (updateTimer == null)
                     {
@@ -247,7 +226,6 @@ namespace ASCOM.Komakallio
 
         public string Description
         {
-            // TODO customise this device description
             get
             {
                 tl.LogMessage("Description Get", driverDescription);
@@ -260,7 +238,6 @@ namespace ASCOM.Komakallio
             get
             {
                 Version version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-                // TODO customise this driver description
                 string driverInfo = "Information about the driver itself. Version: " + String.Format(CultureInfo.InvariantCulture, "{0}.{1}", version.Major, version.Minor);
                 tl.LogMessage("DriverInfo Get", driverInfo);
                 return driverInfo;
@@ -292,7 +269,7 @@ namespace ASCOM.Komakallio
         {
             get
             {
-                string name = "Short driver name - please customise";
+                string name = "Komakallio ObservingConditions";
                 tl.LogMessage("Name Get", name);
                 return name;
             }
@@ -334,6 +311,9 @@ namespace ASCOM.Komakallio
         {
             get
             {
+                if (Double.IsNaN(cloudCover))
+                    throw new PropertyNotImplementedException("CloudCover");
+
                 return cloudCover;
             }
         }
@@ -349,7 +329,9 @@ namespace ASCOM.Komakallio
         {
             get
             {
-                return utilities.Humidity2DewPoint(humidity, temperature);
+                if (Double.IsNaN(dewpoint))
+                    throw new PropertyNotImplementedException("DewPoint");
+                return dewpoint;
             }
         }
 
@@ -364,6 +346,8 @@ namespace ASCOM.Komakallio
         {
             get
             {
+                if (Double.IsNaN(humidity))
+                    throw new PropertyNotImplementedException("Humidity");
                 return humidity;
             }
         }
@@ -380,6 +364,8 @@ namespace ASCOM.Komakallio
         {
             get
             {
+                if (Double.IsNaN(pressure))
+                    throw new PropertyNotImplementedException("Pressure");
                 return pressure;
             }
         }
@@ -395,9 +381,9 @@ namespace ASCOM.Komakallio
         {
             get
             {
-                return 0;
-//                LogMessage("RainRate", "get - not implemented");
-//                throw new PropertyNotImplementedException("RainRate", false);
+                if (Double.IsNaN(rain))
+                    throw new PropertyNotImplementedException("RainRate");
+                return rain;
             }
         }
 
@@ -440,13 +426,17 @@ namespace ASCOM.Komakallio
                 case "cloudcover":
                     return "Cloud cover";
                 case "rainrate":
+                    return "Rain rate";
                 case "skybrightness":
+                    return "Sky brightness (lux)";
                 case "skyquality":
+                    return "Sky quality";
                 case "starfwhm":
+                    return "Star FWHM";
                 case "skytemperature":
+                    return "Sky temperature";
                 case "windgust":
-                    LogMessage("SensorDescription", "{0} - not implemented", PropertyName);
-                    throw new MethodNotImplementedException("SensorDescription(" + PropertyName + ")");
+                    return "Wind gust";
                 default:
                     LogMessage("SensorDescription", "{0} - unrecognised", PropertyName);
                     throw new ASCOM.InvalidValueException("SensorDescription(" + PropertyName + ")");
@@ -460,9 +450,9 @@ namespace ASCOM.Komakallio
         {
             get
             {
-                return 0;
-                LogMessage("SkyBrightness", "get - not implemented");
-                throw new PropertyNotImplementedException("SkyBrightness", false);
+                if (Double.IsNaN(skybrightness))
+                    throw new PropertyNotImplementedException("SkyBrightness");
+                return skybrightness;
             }
         }
 
@@ -473,9 +463,9 @@ namespace ASCOM.Komakallio
         {
             get
             {
-                return 0;
-                LogMessage("SkyQuality", "get - not implemented");
-                throw new PropertyNotImplementedException("SkyQuality", false);
+                if (Double.IsNaN(sqm))
+                    throw new PropertyNotImplementedException("SkyQuality");
+                return sqm;
             }
         }
 
@@ -486,9 +476,9 @@ namespace ASCOM.Komakallio
         {
             get
             {
-                return 0;
-                LogMessage("StarFWHM", "get - not implemented");
-                throw new PropertyNotImplementedException("StarFWHM", false);
+                if (Double.IsNaN(starfwhm))
+                    throw new PropertyNotImplementedException("StarFWHM");
+                return starfwhm;
             }
         }
 
@@ -499,9 +489,9 @@ namespace ASCOM.Komakallio
         {
             get
             {
-                return 0;
-                LogMessage("SkyTemperature", "get - not implemented");
-                throw new PropertyNotImplementedException("SkyTemperature", false);
+                if (Double.IsNaN(skytemp))
+                    throw new PropertyNotImplementedException("SkyTemperature");
+                return skytemp;
             }
         }
 
@@ -512,6 +502,8 @@ namespace ASCOM.Komakallio
         {
             get
             {
+                if (Double.IsNaN(temperature))
+                    throw new PropertyNotImplementedException("Temperature");
                 return temperature;
             }
         }
@@ -541,7 +533,6 @@ namespace ASCOM.Komakallio
                     case "winddirection":
                     case "windspeed":
                     case "cloudcover":
-                        return (DateTime.Now - lastUpdate).Seconds;
                     case "rainrate":
                     case "dewpoint":
                     case "skybrightness":
@@ -549,9 +540,7 @@ namespace ASCOM.Komakallio
                     case "starfwhm":
                     case "skytemperature":
                     case "windgust":
-                        // throw an exception on the properties that are not implemented
-                        LogMessage("TimeSinceLastUpdate", "{0} - not implemented", PropertyName);
-                        throw new MethodNotImplementedException("SensorDescription(" + PropertyName + ")");
+                        return (DateTime.Now - lastUpdate).Seconds;
                     default:
                         LogMessage("TimeSinceLastUpdate", "{0} - unrecognised", PropertyName);
                         throw new ASCOM.InvalidValueException("SensorDescription(" + PropertyName + ")");
@@ -572,6 +561,8 @@ namespace ASCOM.Komakallio
         {
             get
             {
+                if (Double.IsNaN(winddir))
+                    throw new PropertyNotImplementedException("WindDirection");
                 return winddir;
             }
         }
@@ -583,9 +574,9 @@ namespace ASCOM.Komakallio
         {
             get
             {
-                return 0;
-                LogMessage("WindGust", "get - not implemented");
-                throw new PropertyNotImplementedException("WindGust", false);
+                if (Double.IsNaN(windgust))
+                    throw new PropertyNotImplementedException("WindGust");
+                return windgust;
             }
         }
 
@@ -596,6 +587,8 @@ namespace ASCOM.Komakallio
         {
             get
             {
+                if (Double.IsNaN(windspeed))
+                    throw new PropertyNotImplementedException("WindSpeed");
                 return windspeed;
             }
         }
@@ -603,34 +596,6 @@ namespace ASCOM.Komakallio
         #endregion
 
         #region private methods
-
-        #region calculate the gust strength as the largest wind recorded over the last two minutes
-
-        // save the time and wind speed values
-        private Dictionary<DateTime, double> winds = new Dictionary<DateTime, double>();
-
-        private double gustStrength;
-
-        private void UpdateGusts(double speed)
-        {
-            Dictionary<DateTime, double> newWinds = new Dictionary<DateTime, double>();
-            var last = DateTime.Now - TimeSpan.FromMinutes(2);
-            winds.Add(DateTime.Now, speed);
-            var gust = 0.0;
-            foreach (var item in winds)
-            {
-                if (item.Key > last)
-                {
-                    newWinds.Add(item.Key, item.Value);
-                    if (item.Value > gust)
-                        gust = item.Value;
-                }
-            }
-            gustStrength = gust;
-            winds = newWinds;
-        }
-
-        #endregion
 
         private void UpdateObservingConditionsData(object state)
         {
@@ -652,12 +617,19 @@ namespace ASCOM.Komakallio
                         json = reader.ReadToEnd();
 
                     Dictionary<string, string> values = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-                    temperature = Double.Parse(values["temperature"], CultureInfo.InvariantCulture);
-                    humidity = Double.Parse(values["humidity"], CultureInfo.InvariantCulture);
-                    pressure = Double.Parse(values["pressure"], CultureInfo.InvariantCulture);
-                    windspeed = Double.Parse(values["windspeed"], CultureInfo.InvariantCulture);
-                    winddir = Double.Parse(values["winddir"], CultureInfo.InvariantCulture);
-                    cloudCover = Double.Parse(values["clouds"], CultureInfo.InvariantCulture);
+                    temperature = parseValue(values, "temperature");
+                    humidity = parseValue(values, "humidity");
+                    dewpoint = parseValue(values, "dewpoint");
+                    pressure = parseValue(values, "pressure");
+                    windspeed = parseValue(values, "windspeed");
+                    windgust = parseValue(values, "windgust");
+                    winddir = parseValue(values, "winddir");
+                    rain = parseValue(values, "rainrate");
+                    cloudCover = parseValue(values, "cloudcover");
+                    skybrightness = parseValue(values, "skybrightness");
+                    skytemp = parseValue(values, "skytemperature");
+                    sqm = parseValue(values, "skyquality");
+                    starfwhm = parseValue(values, "starfwhm");
 
                     lastUpdate = DateTime.Now;
                 }
@@ -665,6 +637,14 @@ namespace ASCOM.Komakallio
             {
                 LogMessage("Update", "Error: " + e.Message);
             }
+        }
+
+        private Double parseValue(Dictionary<String, String> values, String key)
+        {
+            if (!values.ContainsKey(key))
+                return Double.NaN;
+            else
+                return Double.Parse(values[key], CultureInfo.InvariantCulture);
         }
 
         #endregion
