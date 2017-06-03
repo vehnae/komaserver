@@ -1,0 +1,21 @@
+{
+  "name": "koma-safety-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "Jari Saukkonen",
+  "license": "MIT",
+  "dependencies": {
+    "bluebird": "^3.5.0",
+    "body-parser": "^1.17.1",
+    "express": "^4.14.0",
+    "express-logging": "^1.1.1",
+    "logops": "^1.0.7",
+    "redis": "^2.7.1",
+    "suncalc": "git://github.com/mourner/suncalc.git#master"
+  }
+}
