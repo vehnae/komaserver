@@ -40,13 +40,13 @@ function sendLatestData(type, req, res) {
                 logger.error(err);
                 res.status(500).send(err);
             } else {
-                var ptus = [];
+                var items = [];
                 for (var i = 0; i < reply.length/2; i++) {
-                    var ptu = JSON.parse(reply[i*2]);
-                    ptu.Timestamp = parseInt(reply[i*2+1]);
-                    ptus.push(ptu)
+                    var data = JSON.parse(reply[i*2]);
+                    data.Timestamp = parseInt(reply[i*2+1]);
+                    items.push(data)
                 }
-                res.status(200).send(ptus);
+                res.status(200).send(items);
             }
         });
     } else {
@@ -55,9 +55,9 @@ function sendLatestData(type, req, res) {
                 logger.error(err);
                 res.status(500).send(err);
             } else {
-                var ptu = JSON.parse(reply[0]);
-                ptu.Timestamp = parseInt(reply[1]);
-                res.status(200).send(ptu);
+                var data = JSON.parse(reply[0]);
+                data.Timestamp = parseInt(reply[1]);
+                res.status(200).send(data);
             }
         });
     }
