@@ -83,7 +83,7 @@ function cloudcover(sky, ambient) {
     // less than -5 delta => cloudy
     // more than -15 delta => clear
     // interpolate intermediate values linearly
-    var cover = (ambient-sky-5) / 10;
+    var cover = 1.0 - (ambient-sky-5) / 10;
     if (cover < 0) return 0.0;
     if (cover > 1) return 1.0;
     return cover;
