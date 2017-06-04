@@ -92,6 +92,8 @@ app.post('/api', function(req, res) {
         saveData('status', req, res);
     } else if (req.body.Type == 'Radar') {
         saveData('radar', req, res);
+    } else if (req.body.Type == 'Cloud') {
+        saveData('cloud', req, res);
     } else {
         res.sendStatus(400);
         return;
@@ -120,6 +122,10 @@ app.get('/api/status', function(req, res) {
 
 app.get('/api/radar', function(req, res) {
     sendLatestData('radar', req, res);
+});
+
+app.get('/api/cloud', function(req, res) {
+    sendLatestData('cloud', req, res);
 });
 
 app.get('/api/weather', function(req, res) {
