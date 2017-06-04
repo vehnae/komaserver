@@ -71,7 +71,7 @@ app.get('/safety', function(req, res) {
             var btemp = ptu.Data.Temperature.Ambient[0] > -25;
             var brain = raintrigger.Data.RAIN == 0 && rain.Data.Rain.Intensity[0] == 0;
             var bradar = radar.Data["30km"] < 0.1;
-            var bsun = SunCalc.getPosition(new Date(), latitude, longitude).altitude*180/Math.PI > -5;
+            var bsun = SunCalc.getPosition(new Date(), latitude, longitude).altitude*180/Math.PI < -5;
 
             var data = {
                 safe: btemp && brain && bsun && bradar,
@@ -79,7 +79,8 @@ app.get('/safety', function(req, res) {
                     temperature: ptu.Data.Temperature.Ambient[0],
                     rainintensity: rain.Data.Rain.Intensity[0],
                     raintrigger: raintrigger.Data.RAIN,
-                    rainradar: radar.Data["30km"],
+                    rainradar30km: radar.Data["30km"],
+                    rainradar50km: radar.Data["50km"],
                     sunaltitude: SunCalc.getPosition(new Date(), latitude, longitude).altitude*180/Math.PI,
                     moonaltitude: SunCalc.getMoonPosition(new Date(), latitude, longitude).altitude*180/Math.PI
                 }
