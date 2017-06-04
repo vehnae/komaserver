@@ -68,19 +68,20 @@ app.get('/safety', function(req, res) {
                 raintrigger = JSON.parse(replies[2][0]),
                 radar = JSON.parse(replies[3][0]);
 
-            var btemp = ptu.Data.Temperature.Ambient > -25;
+            var btemp = ptu.Data.Temperature.Ambient[0] > -25;
             var brain = raintrigger.Data.RAIN == 0 && rain.Data.Rain.Intensity[0] == 0;
             var bradar = radar.Data["30km"] < 0.1;
-            var bsun = SunCalc.getPosition(new Date(), latitude, longitude) > -5*Math.PI/180;
+            var bsun = SunCalc.getPosition(new Date(), latitude, longitude).altitude*180/Math.PI > -5;
 
             var data = {
                 safe: btemp && brain && bsun && bradar,
                 details: {
-                    temperature: ptu.Data.Temperature.Ambient,
+                    temperature: ptu.Data.Temperature.Ambient[0],
                     rainintensity: rain.Data.Rain.Intensity[0],
                     raintrigger: raintrigger.Data.RAIN,
                     rainradar: radar.Data["30km"],
-                    sunaltitude: SunCalc.getPosition(new Date(), latitude, longitude)
+                    sunaltitude: SunCalc.getPosition(new Date(), latitude, longitude).altitude*180/Math.PI,
+                    moonaltitude: SunCalc.getMoonPosition(new Date(), latitude, longitude).altitude*180/Math.PI
                 }
             };
             res.json(data);
