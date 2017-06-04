@@ -32,6 +32,9 @@ const Promise = require('bluebird');
 const REDIS_PORT = process.env.REDIS_PORT || 6379;
 const SunCalc = require('suncalc');
 
+const latitude = 60.172867;
+const longitude = 24.388552;
+
 Promise.promisifyAll(redis.RedisClient.prototype);
 
 const app = express();
@@ -46,33 +49,45 @@ app.use(express.static('public'));
 app.use(bodyParser.json());
 
 app.get('/safety', function(req, res) {
-    var a = redisClient.zrevrangeAsync('ptu', 0, 0);
-    var b = redisClient.zrevrangeAsync('rain', 0, 0);
-    var c = redisClient.zrevrangeAsync('raintrigger', 0, 0);
 
-    Promise.join(a, b, c, function(ptureply, rainreply, raintriggerreply) {
-        if (ptureply.length == 0 || rainreply.length == 0 || raintriggerreply.length == 0) {
-            logger.error('Reading Redis failed');
-            res.status(500).send('{"error":"Reading redis failed"}');
-            return;
+    Promise.join(
+        redisClient.zrevrangeAsync('ptu', 0 ,0),
+        redisClient.zrevrangeAsync('rain', 0, 0),
+        redisClient.zrevrangeAsync('raintrigger', 0, 0),
+        redisClient.zrevrangeAsync('radar', 0, 0),
+
+        function(...replies) {
+            if (replies.find(reply => reply.length === 0)) {
+                logger.error('Reading Redis failed');
+                res.status(500).send('{"error":"Reading redis failed"}');
+                return;
+            }
+
+            var ptu = JSON.parse(replies[0][0]),
+                rain = JSON.parse(replies[1][0]),
+                raintrigger = JSON.parse(replies[2][0]),
+                radar = JSON.parse(replies[3][0]);
+
+            var btemp = ptu.Data.Temperature.Ambient > -25;
+            var brain = raintrigger.Data.RAIN == 0 && rain.Data.Rain.Intensity[0] == 0;
+            var bradar = radar.Data["30km"] < 0.1;
+            var bsun = SunCalc.getPosition(new Date(), latitude, longitude) > -5*Math.PI/180;
+
+            var data = {
+                safe: btemp && brain && bsun && bradar,
+                details: {
+                    temperature: ptu.Data.Temperature.Ambient,
+                    rainintensity: rain.Data.Rain.Intensity[0],
+                    raintrigger: raintrigger.Data.RAIN,
+                    rainradar: radar.Data["30km"],
+                    sunaltitude: SunCalc.getPosition(new Date(), latitude, longitude)
+                }
+            };
+            res.json(data);
         }
-        var ptu = JSON.parse(ptureply[0]);
-        var rain = JSON.parse(rainreply[0]);
-        var raintrigger = JSON.parse(raintriggerreply[0]);
-
-        var btemp = ptu.Data.Temperature.Ambient > -25;
-        var brain = raintrigger.Data.RAIN == 0 && rain.Data.Rain.Intensity.Average[0] == 0;
-        var bsun = SunCalc.getPosition(new Date(), latitude, longitude) > -5*Math.PI/180;
-
-        var safe = btemp && brain && bsun;
-
-        var data = {
-            safe: safe
-        };
-        res.json(data);
-    }).catch(function(err) {
+    ).catch(function(err) {
         logger.error('Reading Redis failed', err);
-        res.status(500).send('{"error":"Reading redis failed: ' + err+  '"}');
+        res.status(500).send('{"error":"Reading redis failed: ' + err +  '"}');
     });
 });
 
