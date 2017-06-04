@@ -166,8 +166,8 @@ app.get('/api/weather', function(req, res) {
                 windgust: wind.Data.Speed.limits[1][0],
                 winddir: wind.Data.Direction.average[0],
                 rainrate: rain.Data.Rain.Intensity[0],
-                cloudcover: cloudcover(cloud.Data.Sky, cloud.Data.Ambient),
-                skytemperature: ptu.Data.Temperature.Ambient[0] + cloud.Data.Sky - cloud.Data.Ambient,
+                cloudcover: cloudcover(cloud.Data.Sky, ptu.Data.Temperature.Ambient[0]),
+                skytemperature: cloud.Data.Sky,
                 skyquality: 0
             };
             res.json(data);
