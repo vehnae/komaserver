@@ -21,7 +21,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-var COMPORT = '/dev/ttyUSB2';
+var COMPORT = '/dev/ttyUSB1';
 
 var logger = require('logops');
 logger.setLevel('DEBUG');
@@ -45,13 +45,14 @@ port.on('data', function (data) {
         if (result.complete && result.success) {
             var parts = result.message.split(',');
             var data = { 'Type': 'RainTrigger', 'Data': {}};
-            for (part in parts) {
+	    parts.forEach(function(part) {
                 var key = part.split('=')[0];
                 var value = part.split('=')[1];
                 data.Data[key] = value;
-            }
+            });
+	    console.log(JSON.stringify(data));
             request.post({
-                url: 'http://localhost:9001/api'
+                url: 'http://localhost:9001/api',
                 body: data,
                 json: true
             })
