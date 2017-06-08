@@ -22,8 +22,8 @@ app.use(express.static('public'));
 app.use(bodyParser.json());
 
 function saveData(type, req, res) {
-    var timestamp = 'Timestamp' in req.body ? parseInt(req.body.Timestamp) : Date.now();
-    redisClient.zadd(type, timestamp, JSON.stringify(req.body), function(err, reply) {
+    req.body.Timestamp = 'Timestamp' in req.body ? parseInt(req.body.Timestamp) : Date.now();
+    redisClient.zadd(type, req.body.Timestamp, JSON.stringify(req.body), function(err, reply) {
         if (err) {
             logger.error(err);
             res.status(500).send(err);
