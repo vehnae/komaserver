@@ -14,12 +14,15 @@
 // SDA A4
 
 static int rainFrequency = 0;
-static bool hasRoomSensor = false;
-static bool hasInternalSensor = false;
+static bool hasInteriorSensor = false;
+static bool hasEnclosureSensor = false;
 static Adafruit_BME280 bme;
 static OneWire onewire(PIN_ONEWIRE);
 static DallasTemperature dallasTemperature(&onewire);
 static NMEASerial nmeaSerial(NULL);
+
+static bool lastRainState = false;
+static unsigned long lastReportTime = 0;
 
 void setup() {
     pinMode(PIN_DRD11A_RAIN, INPUT);
@@ -28,9 +31,9 @@ void setup() {
     Serial.begin(57600);
     FreqCount.begin(1000);
 
-    hasRoomSensor = bme.begin();
+    hasInteriorSensor = bme.begin();
     dallasTemperature.begin();
-    hasInternalSensor = (dallasTemperature.getDeviceCount() > 0);
+    hasEnclosureSensor = (dallasTemperature.getDeviceCount() > 0);
 }
 
 void loop() {
@@ -47,24 +50,29 @@ void loop() {
     msg += ",INTENSITY=";
     msg += rainIntensity;
 
-    if (hasInternalSensor) {
+    if (hasEnclosureSensor) {
         dallasTemperature.requestTemperatures();
-        float internalTemp = dallasTemperature.getTempCByIndex(0);
-        msg += ",INTERNALTEMP=";
-        msg += internalTemp;
+        float enclosureTemp = dallasTemperature.getTempCByIndex(0);
+        msg += ",ENCLOSURETEMP=";
+        msg += enclosureTemp;
     }
-    if (hasRoomSensor) {
-        float roomTemp = bme.readTemperature();
-        float roomHumidity = bme.readHumidity();
-        float roomPressure = bme.readPressure();
-        msg += ",ROOMTEMP=";
-        msg += roomTemp;
-        msg += ",ROOMHUMIDITY=";
-        msg += roomHumidity;
-        msg += ",ROOMPRESSURE=";
-        msg += roomPressure;
+    if (hasInteriorSensor) {
+        float interiorTemp = bme.readTemperature();
+        float interiorHumidity = bme.readHumidity();
+        float interiorPressure = bme.readPressure();
+        msg += ",INTERIORTEMP=";
+        msg += interiorTemp;
+        msg += ",INTERIORHUMIDITY=";
+        msg += interiorHumidity;
+        msg += ",INTERIORPRESSURE=";
+        msg += interiorPressure;
     }
-    nmeaSerial.print(msg);
 
-    delay(1000);
+    unsigned long currentTime = millis();
+    unsigned long timeSinceLastReport = currentTime - lastReportTime;
+    if ((lastRainState == false && rain) || timeSinceLastReport > 10000) {
+        lastReportTime = currentTime;
+        nmeaSerial.print(msg);
+    }
+    lastRainState = rain;
 }
