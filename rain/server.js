@@ -48,6 +48,11 @@ port.on('data', function (data) {
 	    parts.forEach(function(part) {
                 var key = part.split('=')[0];
                 var value = part.split('=')[1];
+		if (key == 'INTERNALTEMP') {
+		    value = parseFloat(value);
+		} else {
+		    value = parseInt(value);
+		}
                 data.Data[key] = value;
             });
 	    console.log(JSON.stringify(data));
