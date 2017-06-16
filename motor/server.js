@@ -21,7 +21,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-var COMPORT = '/dev/cu.wchusbserial14420';
+var COMPORT = '/dev/cu.usbmodem1411';
 
 var express = require('express');
 var _ = require('underscore');
