@@ -38,6 +38,7 @@ for (var i = 0; i < 120; i++) {
     power.push(0);
 }
 var status = "";
+var loglines = ['', '', ''];
 
 var port = new SerialPort(COMPORT, {
   baudRate: 57600
@@ -47,7 +48,8 @@ var port = new SerialPort(COMPORT, {
 app.get('/status', function(req, res) {
     res.json({
         power: power,
-        status: status
+        status: status,
+        log: loglines
     });
 });
 
@@ -95,6 +97,11 @@ port.on('data', function (data) {
         },
         STATUS:function(args) {
             status = args;
+        },
+        LOG:function(args) {
+            loglines.shift();
+            loglines.push(args);
+            logger.info(args);
         }
     };
 
