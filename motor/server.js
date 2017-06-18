@@ -89,6 +89,7 @@ port.on('open', function() {
 port.on('data', function (data) {
     var handlers = {
         POWER:function(args) {
+            logger.info(args);
             var data = args.split(',');
             for (var i = 0; i < data.length; i++) {
                 power.shift();
@@ -112,6 +113,8 @@ port.on('data', function (data) {
             var cmd = result.message.substring(0, result.message.indexOf(','));
             if (handlers[cmd])
                 handlers[cmd](result.message.substring(result.message.indexOf(',')+1));
+            else
+                logger.info('unknown command ' + result.message);
         }
     }
 });
