@@ -117,7 +117,7 @@
               chart.update();
 
               $('#status').html(res.status);
-              $('#status').html(res.log.replaceAll('\n', '<br/>'));
+              $('#log').html(res.log[0] + '<br/>' + res.log[1] + '<br/>' + res.log[2]);
           });
         }, 1000);
     </script>
