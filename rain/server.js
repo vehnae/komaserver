@@ -49,14 +49,14 @@ port.on('data', function (data) {
                 .reduce((o, p) => (o[p[0]] = p[1], o), {});
 
             var raindata = { 'Type': 'RainTrigger', 'Data': {}};
-            raindata.Rain = parseInt(data.RAIN);
-            raindata.Intensity = parseInt(data.INTENSITY);
+            raindata.Data.Rain = parseInt(data.RAIN);
+            raindata.Data.Intensity = parseInt(data.INTENSITY);
 
             var interiordata = { 'Type': 'Interior', 'Data': {}};
-            interiordata.EnclosureTemp = [ parseFloat(data.ENCLOSURETEMP), 'C' ];
-            interiordata.InteriorTemp = [ parseFloat(data.INTERIORTEMP), 'C' ];
-            interiordata.InteriorHumidity = [ parseFloat(data.INTERIORHUMIDITY), '%' ];
-            interiordata.InteriorPressure = [ parseInt(data.INTERIORPRESSURE)/100.0, 'hPa' ];
+            interiordata.Data.EnclosureTemp = [ parseFloat(data.ENCLOSURETEMP), 'C' ];
+            interiordata.Data.InteriorTemp = [ parseFloat(data.INTERIORTEMP), 'C' ];
+            interiordata.Data.InteriorHumidity = [ parseFloat(data.INTERIORHUMIDITY), '%' ];
+            interiordata.Data.InteriorPressure = [ parseInt(data.INTERIORPRESSURE)/100.0, 'hPa' ];
 
             console.log(JSON.stringify(raindata));
             request.post({
