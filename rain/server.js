@@ -43,24 +43,34 @@ port.on('data', function (data) {
     for (var i = 0; i < data.length; i++) {
         var result = parser.consume(data.charAt(i));
         if (result.complete && result.success) {
-            var parts = result.message.split(',');
-            var data = { 'Type': 'RainTrigger', 'Data': {}};
-	    parts.forEach(function(part) {
-                var key = part.split('=')[0];
-                var value = part.split('=')[1];
-		if (key == 'INTERNALTEMP') {
-		    value = parseFloat(value);
-		} else {
-		    value = parseInt(value);
-		}
-                data.Data[key] = value;
-            });
-	    console.log(JSON.stringify(data));
+            var data = result.message
+                .split(',')
+                .map(p => p.split('='))
+                .reduce((o, p) => (o[p[0]] = p[1], o), {});
+
+            var raindata = { 'Type': 'RainTrigger', 'Data': {}};
+            raindata.Rain = parseInt(data.RAIN);
+            raindata.Intensity = parseInt(data.INTENSITY);
+
+            var interiordata = { 'Type': 'Interior', 'Data': {}};
+            interiordata.EnclosureTemp = [ parseFloat(data.ENCLOSURETEMP), 'C' ];
+            interiordata.InteriorTemp = [ parseFloat(data.INTERIORTEMP), 'C' ];
+            interiordata.InteriorHumidity = [ parseFloat(data.INTERIORHUMIDITY), '%' ];
+            interiordata.InteriorPressure = [ parseInt(data.INTERIORPRESSURE)/100.0, 'hPa' ];
+
+            console.log(JSON.stringify(raindata));
             request.post({
                 url: 'http://localhost:9001/api',
-                body: data,
+                body: raindata,
                 json: true
-            })
+            });
+
+            console.log(JSON.stringify(interiordata));
+            request.post({
+                url: 'http://localhost:9001/api',
+                body: interiordata,
+                json: true
+            });
         }
     }
 });
