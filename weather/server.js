@@ -98,6 +98,8 @@ app.post('/api', function(req, res) {
         saveData('rain', req, res);
     } else if (req.body.Type == 'RainTrigger') {
         saveData('raintrigger', req, res);
+    } else if (req.body.Type == 'Interior') {
+        saveData('interior', req, res);
     } else if (req.body.Type == 'Status') {
         saveData('status', req, res);
     } else if (req.body.Type == 'Radar') {
@@ -124,6 +126,10 @@ app.get('/api/rain', function(req, res) {
 
 app.get('/api/raintrigger', function(req, res) {
     sendLatestData('raintrigger', req, res);
+});
+
+app.get('/api/interior', function(req, res) {
+    sendLatestData('interior', req, res);
 });
 
 app.get('/api/status', function(req, res) {
