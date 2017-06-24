@@ -1,5 +1,5 @@
 {
-  "name": "koma-server",
+  "name": "koma-roof-server",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
@@ -8,12 +8,12 @@
     "start": "node server.js"
   },
   "author": "Jari Saukkonen",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "express": "^4.13.3",
     "express-logging": "^1.1.1",
     "logops": "^1.0.1",
-    "memcache": "^0.3.0",
-    "underscore": "^1.8.3"
+    "underscore": "^1.8.3",
+    "redis": "^2.7.1"
   }
 }
