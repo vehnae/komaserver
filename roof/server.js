@@ -28,6 +28,8 @@ const logger = require('logops');
 logger.setLevel('DEBUG');
 const fs = require('fs');
 const redis = require('redis');
+const roofmotor = require('./roofmotor');
+roofMotor.setStateCallback(roofCallback);
 
 const app = express();
 app.use(expressLogging(logger));
@@ -35,9 +37,44 @@ app.use(expressLogging(logger));
 const REDIS_PORT = process.env.REDIS_PORT || 6379;
 const redisClient = redis.createClient(REDIS_PORT);
 
+var roofState = "STOPPED";
+
 redisClient.on("error", function(err) {
     console.log("Redis error: " + err);
 });
+
+function roofCallback(state) {
+    switch (state) {
+        case "STOPPED": break;
+        case "OPEN": {
+            redisClient.get('roof-state', function(error, result) {
+               roofstate = JSON.parse(result);
+               roofstate.openRequestedBy.forEach((user) => { roofstate.users[user] = true });
+               roofstate.openRequestedBy = [];
+               logger.debug('roof state changed: ' + JSON.stringify(roofstate));
+               redisClient.set('roof-state', JSON.stringify(roofstate));
+           });
+           break;
+        }
+
+        case "CLOSED": {
+            redisClient.get('roof-state', function(error, result) {
+                roofstate = JSON.parse(result);
+                roofstate.users[req.user] = false;
+                logger.debug('roof state changed: ' + JSON.stringify(roofstate));
+                redisClient.set('roof-state', JSON.stringify(roofstate));
+            });
+            break;
+        }
+        case "OPENING": break;
+        case "CLOSING": break;
+        case "STOPPING": break;
+        case "ERROR": break;
+        break;
+    }
+
+    roofState = state;
+}
 
 app.param('user', function(req, res, next, user) {
     req.user = user;
@@ -50,7 +87,7 @@ app.all('/roof/*', function(req, res, next) {
             logger.error('error reading redis: ' + error + ' result: ' + result);
             return res.status(500).end();
         }
-        req.roofstate = JSON.parse(result) || { opening:false, closing:false, openers:[], users:{} };
+        req.roofstate = JSON.parse(result) || { opening:false, closing:false, openRequestedBy:[], users:{} };
         var state = JSON.stringify(req.roofstate);
         next();
         var newState = JSON.stringify(req.roofstate);
@@ -74,22 +111,11 @@ app.post('/roof/:user/open', function(req, res) {
         return v == true;
     });
     if (!roofopen) {
-        req.roofstate.openers.push(req.user);
+        req.roofstate.openRequestedBy.push(req.user);
         if (!req.roofstate.opening) {
             logger.info('open physical roof');
+            roofMotor.open();
             req.roofstate.opening = true;
-            setTimeout(function() {
-                 redisClient.get('roof-state', function(error, result) {
-                    roofstate = JSON.parse(result);
-                    roofstate.opening = false;
-                    roofstate.openers.forEach(function(user) {
-                        roofstate.users[user] = true;
-                    });
-                    roofstate.openers = [];
-                    logger.debug('roof state changed: ' + JSON.stringify(roofstate));
-                    redisClient.set('roof-state', JSON.stringify(roofstate));
-                });
-            }, 5000);
         }
     }
     else {
@@ -113,18 +139,12 @@ app.post('/roof/:user/close', function(req, res) {
     var otherusers = _.any(_.mapObject(req.roofstate.users), function(open, user) { 
         return user != req.user && open;
     });
-    remove(req.roofstate.openers, req.user);
+    remove(req.roofstate.openRequestedBy, req.user);
     if (roofopen && !otherusers && !req.roofstate.closing) {
         logger.info('close physical roof');
+        roofMotor.close();
         req.roofstate.closing = true;
         setTimeout(function() {
-            redisClient.get('roof-state', function(error, result) {
-                roofstate = JSON.parse(result);
-                roofstate.closing = false;
-                roofstate.users[req.user] = false;
-                logger.debug('roof state changed: ' + JSON.stringify(roofstate));
-                redisClient.set('roof-state', JSON.stringify(roofstate));
-            });
         }, 5000);
     }
     else {
@@ -134,6 +154,32 @@ app.post('/roof/:user/close', function(req, res) {
     }
     res.status(200).send('OK');
 });
+
+
+app.get('/motor/status', function(req, res) {
+    res.json({
+        power: roofmotor.powerusage(),
+        status: roofmotor.statusline(),
+        log: roofmotor.loglines()
+    });
+});
+
+app.post('/motor/open', function(req, res) {
+    roofmotor.open();
+    res.json({success:true});
+});
+
+app.post('/motor/close', function(req, res) {
+    roofmotor.close();
+    res.json({success:true});
+});
+
+app.post('/motor/stop', function(req, res) {
+    roofmotor.stop();
+    res.json({success:true});
+});
+
+app.use(express.static('public'));
 
 var server = app.listen(9000, function() {
     var host = server.address().address;
